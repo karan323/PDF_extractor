@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>PDF Dictionary Web</title>
+  <meta name="description" content="A browser-based PDF reader with local library management, dictionary lookup, and reading insights.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/web/pdf_viewer.min.css">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <p class="eyebrow">Browser Edition</p>
+        <h1>PDF Dictionary</h1>
+      </div>
+
+      <div class="topbar-actions">
+        <div class="tabs" role="tablist" aria-label="Primary views">
+          <button id="libraryTabButton" class="tab-button is-active" type="button" role="tab" aria-selected="true">Library</button>
+          <button id="insightsTabButton" class="tab-button" type="button" role="tab" aria-selected="false">Insights</button>
+        </div>
+        <button id="importButton" class="primary-button" type="button">Import PDFs</button>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <section id="libraryWorkspace" class="workspace">
+        <aside class="panel library-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Local Library</p>
+              <h2 id="folderTitle">All Documents</h2>
+            </div>
+            <button id="newFolderButton" class="ghost-button" type="button">New Folder</button>
+          </div>
+
+          <nav id="breadcrumbs" class="breadcrumbs" aria-label="Folder breadcrumbs"></nav>
+
+          <div class="search-row">
+            <input id="searchInput" class="search-input" type="search" placeholder="Search this folder">
+          </div>
+
+          <div class="library-summary">
+            <div class="summary-chip">
+              <span class="summary-label">Folders</span>
+              <strong id="folderCount">0</strong>
+            </div>
+            <div class="summary-chip">
+              <span class="summary-label">PDFs</span>
+              <strong id="documentCount">0</strong>
+            </div>
+          </div>
+
+          <div id="libraryList" class="library-list"></div>
+        </aside>
+
+        <section class="panel reader-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Reader</p>
+              <h2 id="readerTitle">Select a PDF to start reading</h2>
+            </div>
+            <div class="viewer-actions">
+              <button id="dictionaryToggle" class="ghost-button" type="button" aria-pressed="true">Dictionary On</button>
+            </div>
+          </div>
+
+          <div class="viewer-toolbar">
+            <div class="toolbar-group">
+              <button id="prevPageButton" class="icon-button" type="button" aria-label="Previous page">Prev</button>
+              <label class="page-indicator" for="pageNumberInput">
+                Page
+                <input id="pageNumberInput" type="number" min="1" value="1">
+                <span id="pageCountLabel">/ 0</span>
+              </label>
+              <button id="nextPageButton" class="icon-button" type="button" aria-label="Next page">Next</button>
+            </div>
+
+            <div class="toolbar-group">
+              <label class="zoom-label" for="zoomSelect">Zoom</label>
+              <select id="zoomSelect">
+                <option value="page-width">Page Width</option>
+                <option value="page-fit">Page Fit</option>
+                <option value="1">100%</option>
+                <option value="1.25">125%</option>
+                <option value="1.5">150%</option>
+                <option value="2">200%</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="readerEmptyState" class="empty-state reader-empty-state">
+            <strong>Your PDFs stay in this browser.</strong>
+            <p>Import a file, open it, and select a word inside the page to look up its meaning.</p>
+          </div>
+
+          <div id="viewerContainer" class="viewer-container hidden">
+            <div id="viewer" class="pdfViewer"></div>
+          </div>
+        </section>
+
+        <aside id="dictionaryPanel" class="panel dictionary-panel">
+          <div class="panel-header dictionary-header">
+            <div>
+              <p class="eyebrow">Dictionary</p>
+              <h2 id="dictionaryTitle">Ready</h2>
+            </div>
+            <button id="closeDictionaryButton" class="ghost-button mobile-only" type="button">Close</button>
+          </div>
+
+          <div id="dictionaryContent" class="dictionary-content">
+            <div class="empty-state">
+              <strong>Dictionary mode is on.</strong>
+              <p>Select a word in the PDF to fetch its definition.</p>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section id="insightsWorkspace" class="workspace insights-workspace hidden">
+        <div class="insights-grid">
+          <article class="panel stat-card">
+            <p class="eyebrow">Library Size</p>
+            <h2 id="totalDocsValue">0 PDFs</h2>
+            <p id="totalFoldersValue">0 folders</p>
+          </article>
+
+          <article class="panel stat-card">
+            <p class="eyebrow">Lookup Activity</p>
+            <h2 id="totalLookupsValue">0 lookups</h2>
+            <p id="topWordValue">No word selected yet</p>
+          </article>
+
+          <article class="panel stat-card">
+            <p class="eyebrow">Reading Time</p>
+            <h2 id="totalMinutesValue">0 minutes</h2>
+            <p id="todayMinutesValue">0 minutes today</p>
+          </article>
+
+          <article class="panel chart-card">
+            <div class="chart-header">
+              <div>
+                <p class="eyebrow">Seven Day Trend</p>
+                <h2>Reading Minutes</h2>
+              </div>
+            </div>
+            <canvas id="readingChart" height="160"></canvas>
+          </article>
+
+          <article class="panel chart-card">
+            <div class="chart-header">
+              <div>
+                <p class="eyebrow">Vocabulary</p>
+                <h2>Most Looked-Up Words</h2>
+              </div>
+            </div>
+            <canvas id="lookupChart" height="160"></canvas>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="folderDialog" class="dialog">
+    <form id="folderForm" method="dialog" class="dialog-form">
+      <div>
+        <p class="eyebrow">Create Folder</p>
+        <h2>New folder in current location</h2>
+      </div>
+      <label class="form-field" for="folderNameInput">
+        Folder name
+        <input id="folderNameInput" type="text" maxlength="60" required>
+      </label>
+      <div class="dialog-actions">
+        <button class="ghost-button" type="button" id="cancelFolderButton">Cancel</button>
+        <button class="primary-button" type="submit">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <input id="fileInput" type="file" accept="application/pdf" multiple hidden>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
