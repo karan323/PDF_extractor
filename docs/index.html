@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/web/pdf_viewer.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -22,6 +22,7 @@
       <div class="topbar-actions">
         <div class="tabs" role="tablist" aria-label="Primary views">
           <button id="libraryTabButton" class="tab-button is-active" type="button" role="tab" aria-selected="true">Library</button>
+          <button id="allDocumentsTabButton" class="tab-button" type="button" role="tab" aria-selected="false">All Documents</button>
           <button id="insightsTabButton" class="tab-button" type="button" role="tab" aria-selected="false">Insights</button>
         </div>
         <button id="importButton" class="primary-button" type="button">Import PDFs</button>
@@ -31,9 +32,8 @@
     <main class="app-main">
       <section id="libraryWorkspace" class="workspace">
         <aside class="panel library-panel">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">Local Library</p>
+          <div class="panel-header panel-header-compact">
+            <div class="panel-title-inline">
               <h2 id="folderTitle">All Documents</h2>
             </div>
             <button id="newFolderButton" class="ghost-button" type="button">New Folder</button>
@@ -185,7 +185,9 @@
 
   <input id="fileInput" type="file" accept="application/pdf" multiple hidden>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script type="module" src="./app.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>

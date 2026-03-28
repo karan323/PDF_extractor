@@ -1,7 +1,4 @@
-import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/build/pdf.min.mjs";
-import { EventBus, PDFLinkService, PDFViewer } from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/web/pdf_viewer.min.mjs";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/build/pdf.worker.min.mjs";
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const DB_NAME = "pdf-dictionary-web";
 const DB_VERSION = 1;
@@ -32,6 +29,7 @@ const state = {
 
 const elements = {
   libraryTabButton: document.getElementById("libraryTabButton"),
+  allDocumentsTabButton: document.getElementById("allDocumentsTabButton"),
   insightsTabButton: document.getElementById("insightsTabButton"),
   libraryWorkspace: document.getElementById("libraryWorkspace"),
   insightsWorkspace: document.getElementById("insightsWorkspace"),
@@ -75,9 +73,9 @@ let dbPromise;
 let readingChart;
 let lookupChart;
 
-const eventBus = new EventBus();
-const linkService = new PDFLinkService({ eventBus });
-const viewer = new PDFViewer({
+const eventBus = new pdfjsViewer.EventBus();
+const linkService = new pdfjsViewer.PDFLinkService({ eventBus });
+const viewer = new pdfjsViewer.PDFViewer({
   container: elements.viewerContainer,
   viewer: elements.viewer,
   eventBus,
@@ -111,6 +109,11 @@ elements.viewerContainer.addEventListener("touchend", () => {
 });
 
 elements.libraryTabButton.addEventListener("click", () => setActiveTab("library"));
+elements.allDocumentsTabButton.addEventListener("click", () => {
+  state.currentFolderId = ROOT_ID;
+  setActiveTab("library");
+  renderLibrary();
+});
 elements.insightsTabButton.addEventListener("click", () => setActiveTab("insights"));
 elements.importButton.addEventListener("click", () => elements.fileInput.click());
 elements.newFolderButton.addEventListener("click", () => openFolderDialog());
@@ -188,9 +191,13 @@ async function loadData() {
 function setActiveTab(tab) {
   state.activeTab = tab;
   const libraryActive = tab === "library";
+  const allDocumentsActive = libraryActive && state.currentFolderId === ROOT_ID;
+  const folderLibraryActive = libraryActive && !allDocumentsActive;
 
-  elements.libraryTabButton.classList.toggle("is-active", libraryActive);
-  elements.libraryTabButton.setAttribute("aria-selected", String(libraryActive));
+  elements.libraryTabButton.classList.toggle("is-active", folderLibraryActive);
+  elements.libraryTabButton.setAttribute("aria-selected", String(folderLibraryActive));
+  elements.allDocumentsTabButton.classList.toggle("is-active", allDocumentsActive);
+  elements.allDocumentsTabButton.setAttribute("aria-selected", String(allDocumentsActive));
   elements.insightsTabButton.classList.toggle("is-active", !libraryActive);
   elements.insightsTabButton.setAttribute("aria-selected", String(!libraryActive));
   elements.libraryWorkspace.classList.toggle("hidden", !libraryActive);
@@ -220,6 +227,7 @@ function renderLibrary() {
 
   const currentFolder = getFolderById(state.currentFolderId);
   elements.folderTitle.textContent = currentFolder ? currentFolder.name : "All Documents";
+  setActiveTab("library");
   elements.folderCount.textContent = String(currentFolders.length);
   elements.documentCount.textContent = String(currentDocuments.length);
   renderBreadcrumbs();
@@ -588,7 +596,11 @@ async function openDocument(documentId) {
 
   try {
     const bytes = new Uint8Array(await documentRecord.blob.arrayBuffer());
-    const loadingTask = pdfjsLib.getDocument({ data: bytes });
+    const loadingTask = pdfjsLib.getDocument({
+      data: bytes,
+      useWorkerFetch: false,
+      isEvalSupported: false,
+    });
     const pdfDocument = await loadingTask.promise;
 
     if (state.loadingDocumentId !== documentId) {
@@ -600,8 +612,8 @@ async function openDocument(documentId) {
     state.currentPage = Math.min(documentRecord.lastPage || 1, pdfDocument.numPages);
     viewer.setDocument(pdfDocument);
     linkService.setDocument(pdfDocument, null);
-    viewer.currentScaleValue = state.zoomValue;
     viewer.currentPageNumber = state.currentPage;
+    viewer.currentScaleValue = state.zoomValue;
     renderReader();
     startReadingTicker();
   } catch (error) {
@@ -613,7 +625,7 @@ async function openDocument(documentId) {
     elements.readerTitle.textContent = "Unable to open this PDF";
     elements.readerEmptyState.innerHTML = `
       <strong>PDF rendering failed.</strong>
-      <p>${escapeHtml(error instanceof Error ? error.message : "Unknown error")}</p>
+      <p>${escapeHtml(error instanceof Error ? error.message : String(error || "Unknown error"))}</p>
     `;
   } finally {
     state.loadingDocumentId = null;

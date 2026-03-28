@@ -191,6 +191,19 @@ button {
   padding: 22px 22px 16px;
 }
 
+.panel-header-compact {
+  align-items: center;
+  padding-bottom: 10px;
+}
+
+.panel-title-inline {
+  min-width: 0;
+}
+
+.panel-title-inline h2 {
+  font-size: clamp(1.3rem, 2vw, 1.9rem);
+}
+
 .breadcrumbs {
   display: flex;
   gap: 8px;
@@ -506,6 +519,10 @@ body.dictionary-open .dictionary-panel {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 14px 28px rgba(24, 33, 43, 0.12);
+}
+
+.pdfViewer .textLayer {
+  inset: 0;
 }
 
 @media (min-width: 1280px) {
