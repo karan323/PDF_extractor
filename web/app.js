@@ -10,6 +10,7 @@ const state = {
   lookups: [],
   readingDaily: [],
   activeTab: "library",
+  libraryMode: "library",
   currentFolderId: ROOT_ID,
   searchQuery: "",
   selectedDocumentId: null,
@@ -25,6 +26,7 @@ const state = {
   totalPages: 0,
   zoomValue: "page-width",
   readingIntervalId: null,
+  currentObjectUrl: "",
 };
 
 const elements = {
@@ -42,6 +44,7 @@ const elements = {
   folderCount: document.getElementById("folderCount"),
   documentCount: document.getElementById("documentCount"),
   libraryList: document.getElementById("libraryList"),
+  readerPanel: document.querySelector(".reader-panel"),
   readerTitle: document.getElementById("readerTitle"),
   dictionaryToggle: document.getElementById("dictionaryToggle"),
   prevPageButton: document.getElementById("prevPageButton"),
@@ -52,6 +55,7 @@ const elements = {
   readerEmptyState: document.getElementById("readerEmptyState"),
   viewerContainer: document.getElementById("viewerContainer"),
   viewer: document.getElementById("viewer"),
+  nativePdfFrame: document.getElementById("nativePdfFrame"),
   dictionaryTitle: document.getElementById("dictionaryTitle"),
   dictionaryContent: document.getElementById("dictionaryContent"),
   closeDictionaryButton: document.getElementById("closeDictionaryButton"),
@@ -108,9 +112,13 @@ elements.viewerContainer.addEventListener("touchend", () => {
   window.setTimeout(handleTextSelection, 80);
 });
 
-elements.libraryTabButton.addEventListener("click", () => setActiveTab("library"));
+elements.libraryTabButton.addEventListener("click", () => {
+  state.libraryMode = "library";
+  setActiveTab("library");
+  renderLibrary();
+});
 elements.allDocumentsTabButton.addEventListener("click", () => {
-  state.currentFolderId = ROOT_ID;
+  state.libraryMode = "allDocuments";
   setActiveTab("library");
   renderLibrary();
 });
@@ -169,6 +177,7 @@ void bootstrap();
 
 async function bootstrap() {
   await loadData();
+  state.libraryMode = "library";
   setActiveTab("library");
   renderLibrary();
   renderReader();
@@ -191,8 +200,8 @@ async function loadData() {
 function setActiveTab(tab) {
   state.activeTab = tab;
   const libraryActive = tab === "library";
-  const allDocumentsActive = libraryActive && state.currentFolderId === ROOT_ID;
-  const folderLibraryActive = libraryActive && !allDocumentsActive;
+  const allDocumentsActive = libraryActive && state.libraryMode === "allDocuments";
+  const folderLibraryActive = libraryActive && state.libraryMode === "library";
 
   elements.libraryTabButton.classList.toggle("is-active", folderLibraryActive);
   elements.libraryTabButton.setAttribute("aria-selected", String(folderLibraryActive));
@@ -215,22 +224,30 @@ function setActiveTab(tab) {
 }
 
 function renderLibrary() {
-  const currentFolders = state.folders
-    .filter((folder) => sameParent(folder.parentId, state.currentFolderId))
-    .filter((folder) => matchesSearch(folder.name))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const isAllDocumentsMode = state.libraryMode === "allDocuments";
+  const currentFolders = isAllDocumentsMode
+    ? []
+    : state.folders
+      .filter((folder) => sameParent(folder.parentId, state.currentFolderId))
+      .filter((folder) => matchesSearch(folder.name))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
-  const currentDocuments = state.documents
-    .filter((documentRecord) => sameParent(documentRecord.folderId, state.currentFolderId))
-    .filter((documentRecord) => matchesSearch(documentRecord.name))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const currentDocuments = isAllDocumentsMode
+    ? state.documents
+      .filter((documentRecord) => matchesSearch(documentRecord.name))
+      .sort((a, b) => a.name.localeCompare(b.name))
+    : state.documents
+      .filter((documentRecord) => sameParent(documentRecord.folderId, state.currentFolderId))
+      .filter((documentRecord) => matchesSearch(documentRecord.name))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
   const currentFolder = getFolderById(state.currentFolderId);
-  elements.folderTitle.textContent = currentFolder ? currentFolder.name : "All Documents";
+  elements.folderTitle.textContent = isAllDocumentsMode ? "All Documents" : (currentFolder ? currentFolder.name : "Library");
+  elements.searchInput.placeholder = isAllDocumentsMode ? "Search all documents" : "Search this folder";
   setActiveTab("library");
-  elements.folderCount.textContent = String(currentFolders.length);
+  elements.folderCount.textContent = String(isAllDocumentsMode ? state.folders.length : currentFolders.length);
   elements.documentCount.textContent = String(currentDocuments.length);
-  renderBreadcrumbs();
+  renderBreadcrumbs(isAllDocumentsMode);
 
   if (currentFolders.length === 0 && currentDocuments.length === 0) {
     elements.libraryList.innerHTML = `
@@ -261,7 +278,7 @@ function renderLibrary() {
       <div class="item-icon document">PDF</div>
       <div class="item-meta">
         <h3>${escapeHtml(documentRecord.name)}</h3>
-        <p>${formatFileSize(documentRecord.size)} · ${formatDate(documentRecord.updatedAt)}</p>
+        <p>${formatFileSize(documentRecord.size)} · ${formatDate(documentRecord.updatedAt)}${isAllDocumentsMode ? ` · ${escapeHtml(folderLabelForDocument(documentRecord))}` : ""}</p>
       </div>
       <div class="card-actions">
         <button class="text-button" type="button" data-action="open-document" data-document-id="${documentRecord.id}">Read</button>
@@ -274,7 +291,12 @@ function renderLibrary() {
   bindLibraryActions();
 }
 
-function renderBreadcrumbs() {
+function renderBreadcrumbs(isAllDocumentsMode = false) {
+  if (isAllDocumentsMode) {
+    elements.breadcrumbs.innerHTML = "";
+    return;
+  }
+
   const path = buildFolderPath(state.currentFolderId);
   elements.breadcrumbs.innerHTML = path.map((item, index) => `
     <button
@@ -350,6 +372,7 @@ function renderReader() {
   `;
   elements.readerEmptyState.classList.toggle("hidden", hasDocument);
   elements.viewerContainer.classList.toggle("hidden", !hasDocument);
+  elements.nativePdfFrame.classList.add("hidden");
 
   syncViewerToolbar();
 }
@@ -548,6 +571,7 @@ async function deleteFolder(folderId) {
     state.pdfDocument = null;
     state.totalPages = 0;
     state.currentPage = 1;
+    resetObjectUrl();
     stopReadingTicker();
   }
 
@@ -569,6 +593,7 @@ async function deleteDocument(documentId) {
     state.lookupWord = "";
     state.lookupResults = [];
     state.dictionaryStatus = "idle";
+    resetObjectUrl();
     stopReadingTicker();
   }
 
@@ -594,7 +619,15 @@ async function openDocument(documentId) {
   renderReader();
   renderDictionary();
 
+  if (shouldPreferNativePdfViewer()) {
+    openDocumentInNativeViewer(documentRecord);
+    state.loadingDocumentId = null;
+    syncViewerToolbar();
+    return;
+  }
+
   try {
+    resetObjectUrl();
     const bytes = new Uint8Array(await documentRecord.blob.arrayBuffer());
     const loadingTask = pdfjsLib.getDocument({
       data: bytes,
@@ -614,23 +647,34 @@ async function openDocument(documentId) {
     linkService.setDocument(pdfDocument, null);
     viewer.currentPageNumber = state.currentPage;
     viewer.currentScaleValue = state.zoomValue;
+    elements.viewer.classList.remove("hidden");
+    elements.nativePdfFrame.classList.add("hidden");
     renderReader();
     startReadingTicker();
+    scrollReaderIntoView();
   } catch (error) {
-    state.pdfDocument = null;
-    state.totalPages = 0;
-    state.currentPage = 1;
-    elements.readerEmptyState.classList.remove("hidden");
-    elements.viewerContainer.classList.add("hidden");
-    elements.readerTitle.textContent = "Unable to open this PDF";
-    elements.readerEmptyState.innerHTML = `
-      <strong>PDF rendering failed.</strong>
-      <p>${escapeHtml(error instanceof Error ? error.message : String(error || "Unknown error"))}</p>
-    `;
+    openDocumentInNativeViewer(documentRecord);
   } finally {
     state.loadingDocumentId = null;
     syncViewerToolbar();
   }
+}
+
+function openDocumentInNativeViewer(documentRecord) {
+  state.pdfDocument = null;
+  state.totalPages = 0;
+  state.currentPage = 1;
+  resetObjectUrl();
+
+  const objectUrl = URL.createObjectURL(documentRecord.blob);
+  state.currentObjectUrl = objectUrl;
+  elements.viewer.classList.add("hidden");
+  elements.viewerContainer.classList.remove("hidden");
+  elements.readerEmptyState.classList.add("hidden");
+  elements.nativePdfFrame.src = objectUrl;
+  elements.nativePdfFrame.classList.remove("hidden");
+  elements.readerTitle.textContent = `${documentRecord.name} (Browser Viewer)`;
+  scrollReaderIntoView();
 }
 
 function goToPage(pageNumber) {
@@ -964,6 +1008,11 @@ function getDocumentById(documentId) {
   return state.documents.find((documentRecord) => documentRecord.id === documentId) || null;
 }
 
+function folderLabelForDocument(documentRecord) {
+  const folder = getFolderById(documentRecord.folderId);
+  return folder ? folder.name : "Root";
+}
+
 function matchesSearch(value) {
   return !state.searchQuery || value.toLowerCase().includes(state.searchQuery);
 }
@@ -1031,6 +1080,28 @@ function createId() {
     return window.crypto.randomUUID();
   }
   return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function resetObjectUrl() {
+  if (state.currentObjectUrl) {
+    URL.revokeObjectURL(state.currentObjectUrl);
+    state.currentObjectUrl = "";
+  }
+  elements.nativePdfFrame.removeAttribute("src");
+}
+
+function scrollReaderIntoView() {
+  if (window.innerWidth <= 700) {
+    elements.readerPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function shouldPreferNativePdfViewer() {
+  const userAgent = navigator.userAgent || "";
+  const platform = navigator.platform || "";
+  const isTouchMac = platform === "MacIntel" && navigator.maxTouchPoints > 1;
+
+  return /iPad|iPhone|iPod/i.test(userAgent) || isTouchMac;
 }
 
 async function getAllRecords(storeName) {

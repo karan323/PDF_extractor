@@ -375,6 +375,14 @@ button {
     #e5dece;
 }
 
+.native-pdf-frame {
+  width: 100%;
+  min-height: 72vh;
+  border: 0;
+  border-radius: 14px;
+  background: white;
+}
+
 .reader-empty-state,
 .empty-state {
   margin: auto;
@@ -557,7 +565,7 @@ body.dictionary-open .dictionary-panel {
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 700px) {
   .app-shell {
     padding: 14px;
   }
